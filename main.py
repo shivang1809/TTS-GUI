@@ -1,14 +1,13 @@
+from cgitb import text
 from doctest import master
-from multiprocessing.resource_sharer import stop
 from tkinter import *
 from tkinter.tix import COLUMN
 import customtkinter
 from tkinter import filedialog
 from threading import *
 from tkinter.messagebox import showerror, showinfo
-import os
 import pyttsx3
-import pyperclip
+
 
 customtkinter.set_appearance_mode("System")
 customtkinter.set_default_color_theme("green")
@@ -37,14 +36,18 @@ class App(customtkinter.CTk):
         self.frame_left = customtkinter.CTkFrame(master=self,
                                                  width=180,
                                                  corner_radius=0)
-        self.frame_left.grid(row=0, column=0, sticky="nswe")
+        self.frame_left.grid(row=0, column=0, sticky="nswe", rowspan=2)
 
         self.frame_right = customtkinter.CTkFrame(master=self)
         self.frame_right.grid(row=0, column=1, sticky="nswe", padx=20)
 
+        self.frame_right_bottom = customtkinter.CTkFrame(master=self,
+                                                        height=50)
+        self.frame_right_bottom.grid(row=1, column=1, sticky="nswe", padx=20,pady=(10,0))
+
         self.frame_bottom = customtkinter.CTkFrame(master=self,
                                                      height=40)
-        self.frame_bottom.grid(row=1, column=0,columnspan=2, sticky="nswe",pady=10,padx=10)
+        self.frame_bottom.grid(row=2, column=0,columnspan=2, sticky="nswe",pady=10,padx=10)
         # ============ frame_left ============
 
         # configure grid layout
@@ -72,13 +75,6 @@ class App(customtkinter.CTk):
                                                 command=lambda:self.textBox.textbox.delete(1.0,END))
         self.clearBtn.grid(row=3, column=0, pady=5, padx=20)
 
-        self.copyBtn = customtkinter.CTkButton(master=self.frame_left,
-                                                text="Copy Text",
-                                                border_width=2,  # <- custom border_width
-                                                fg_color=None,  # <- no fg_color
-                                                command=lambda:pyperclip.copy(self.textBox.textbox.get(1.0,END)))
-        self.copyBtn.grid(row=4, column=0, pady=5, padx=20)
-
         self.importBtn = customtkinter.CTkButton(master=self.frame_left,
                                                 text="Import Text",
                                                 border_width=2,  # <- custom border_width
@@ -86,13 +82,15 @@ class App(customtkinter.CTk):
                                                 command=self.import_file)
         self.importBtn.grid(row=4, column=0, pady=5, padx=20)
 
+        
+
         self.label_mode = customtkinter.CTkLabel(master=self.frame_left, text="Voice")
-        self.label_mode.grid(row=9, column=0, pady=0, padx=20, sticky="w")
+        self.label_mode.grid(row=10, column=0, pady=0, padx=20, sticky="w")
 
         self.optionmenu_1 = customtkinter.CTkOptionMenu(master=self.frame_left,
                                                         values=["Male", "Female"],
                                                         )
-        self.optionmenu_1.grid(row=10, column=0, pady=10, padx=20, sticky="w")
+        self.optionmenu_1.grid(row=11, column=0, pady=10, padx=20, sticky="w")
 
 
          # ============ frame_right ============
@@ -101,7 +99,7 @@ class App(customtkinter.CTk):
         
         self.textBox = customtkinter.CTkTextbox(master=self.frame_right,
                                                 width=App.WIDTH-270,
-                                                height=App.HEIGHT-130,
+                                                height=App.HEIGHT-165,
                                                 text_font=("Roboto Medium", -18),)
         self.textBox.grid(row=0, column=0, pady=20, padx=(20,0))
 
@@ -109,6 +107,21 @@ class App(customtkinter.CTk):
         self.scrollbar.grid(row=0, column=1, rowspan=4, sticky="ns",pady=20)
         self.textBox.configure(yscrollcommand=self.scrollbar.set)
         self.textBox.bind("<Configure>", lambda e: self.textBox.configure())
+
+        
+
+        # ============ frame_righy_bottom ============
+        self.rate = customtkinter.CTkLabel(master=self.frame_right_bottom,
+                                                text="Rate:")
+        self.rate.grid(row=0, column=0, pady=5)
+
+        self.slider = customtkinter.CTkSlider(master=self.frame_right_bottom,
+                                            from_=100,
+                                            to=180,
+                                            )
+        self.slider.set(130)
+        self.slider.grid(row=0, column=2, pady=5)
+
 
 
 
@@ -119,7 +132,8 @@ class App(customtkinter.CTk):
         self.fName.grid(row=0, column=0, rowspan=3, columnspan=2, pady=20, padx=20, sticky="w")
 
         self.button_5 = customtkinter.CTkButton(master=self.frame_bottom,
-                                                text="Generate!",
+                                                border_width=2,
+                                                text="Export!",
                                                 command=self.save_audio)
         self.button_5.grid(row=0, column=2, columnspan=1, pady=20, padx=20, sticky="e")
 
@@ -131,11 +145,13 @@ class App(customtkinter.CTk):
         self.destroy()
 
     def import_file(self):
-        filePath = filedialog.askopenfilenames()
+        filePath = filedialog.askopenfilenames(title="Select File",
+                                                filetypes=[("Text File","*.txt")])
         try:
             for filename in filePath:
                 with open (filename, encoding = 'utf8') as f_obj:
                     contents = f_obj.read()
+                self.textBox.textbox.delete('1.0', END)
                 self.textBox.textbox.insert('end',contents)
 
         except Exception:
@@ -145,11 +161,14 @@ class App(customtkinter.CTk):
         engine = pyttsx3.init()
         audio_string = self.textBox.textbox.get(1.0,END)
         voices=engine.getProperty('voices')
-        engine.setProperty('rate',130)
+        engine.setProperty('rate', self.slider.get())
 
         folder = filedialog.askdirectory()
         voiceType = self.optionmenu_1.get()
-        fileName = folder + '/' + self.fName.get()+".mp3"
+        if ".mp30" in self.fName.get():
+            fileName = folder + '/' + self.fName.get()
+        else:
+            fileName = folder + '/' + self.fName.get()+".mp3"
 
         if voiceType == 'Male':
             engine.setProperty('voice', voices[0].id)
@@ -167,7 +186,7 @@ class App(customtkinter.CTk):
         engine = pyttsx3.init()
         audio_string = self.textBox.textbox.get(1.0,END)
         voices=engine.getProperty('voices')
-        engine.setProperty('rate',130)
+        engine.setProperty('rate',self.slider.get())
 
         voiceType = self.optionmenu_1.get()
         if voiceType == 'Male':
